@@ -4,9 +4,23 @@ weight: 8
 sectionnumber: 8
 ---
 
+{{% onlyWhen baloise %}}
+
+## Executing oc commands
+
+{{% alert title="Note" color="primary" %}}
+Execute the following `oc` commands using one of those options:
+
+* OpenShift Webconsole Terminal <http://{{% param replacePlaceholder.openshift_console %}}> right top menu `>_`
+* On your local machine using the `oc` tool, make sure to login on your OpenShift Cluster first.
+
+{{% /alert %}}
+{{% /onlyWhen %}}
+
+
 ## Collecting Application Metrics
 
-When running applications in production, a fast feedback loop is a key factor. The following reasons show why it's essential to gather and combine all sorts of metrics when running an applications in production:
+When running applications in production, a fast feedback loop is a key factor. The following reasons show why it's essential to gather and combine all sorts of metrics when running an application in production:
 
 * To make sure that an application runs smoothly
 * To be able to see production issues and send alerts
@@ -18,39 +32,41 @@ As we saw in [Lab 5 - Instrumenting with client libraries](../05/) Application M
 
 The instrumented application provides Prometheus scrapable application metrics.
 
+{{% onlyWhenNot baloise %}}
+
 Create a namespace where the example application can be deployed to.
 
 ```bash
-kubectl create namespace application-metrics
+{{% param cliToolName %}} create namespace application-metrics
 ```
 
 Deploy the Acend example Python application, which provides application metrics at `/metrics`:
 
 ```bash
-kubectl -n application-metrics create deployment example-web-python \
+{{% param cliToolName %}} -n application-metrics create deployment example-web-python \
 --image=quay.io/acend/example-web-python
 ```
 
 Use the following command to verify the deployment, that the pod `example-web-python` is Ready and Running. (use CTRL C to exit the command)
 
 ```bash
-kubectl -n application-metrics get pod -w
+{{% param cliToolName %}} -n application-metrics get pod -w
 ```
 
 We also need to create a Service for the new application. Create a file with the name `~/work/service.yaml` with the following content:
 
-{{< highlight yaml >}}{{< readfile file="content/en/docs/08/service.yaml" >}}{{< /highlight >}}
+{{< readfile file="/content/en/docs/08/service.yaml" code="true" lang="yaml" >}}
 
 Create the Service with the following command:
 
 ```bash
-kubectl apply -f ~/work/service.yaml -n application-metrics
+{{% param cliToolName %}} apply -f ~/work/service.yaml -n application-metrics
 ```
 
 This created a so-called [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/)
 
 ```bash
-kubectl -n application-metrics get services
+{{% param cliToolName %}} -n application-metrics get services
 ```
 
 Which gives you an output similar to this:
@@ -75,9 +91,62 @@ Use `curl` and verify the successful deployment of our example application:
 curl $(minikube service example-web-python --url -n application-metrics)/metrics
 ```
 
-Should result in something like:
+{{% /onlyWhenNot %}}
+
+{{% onlyWhen baloise %}}
+
+{{% alert title="Note" color="primary" %}}
+We will deploy an application for demonstration purposes in our monitoring namespace. This should never be done for production use cases. If you are familiar with deploying on OpenShift, you can complete this lab by deploying the application on our test cluster.
+{{% /alert %}}
+
+Create the following file `training_python-deployment.yaml` in your monitoring directory.
+
+{{< readfile file="/content/en/docs/08/baloise_python-deployment.yaml" code="true" lang="yaml" >}}
+
+Use the following command to verify that the pod of the deployment `example-web-python` is ready and running (use CTRL+C to exit the command).
 
 ```bash
+team=<team>
+{{% param cliToolName %}} -n $team-monitoring get pod -w -l app=example-web-python
+```
+
+We also need to create a Service for the new application. Create a file with the name `training_python-service.yaml` with the following content:
+
+{{< readfile file="/content/en/docs/08/baloise_python-service.yaml" code="true" lang="yaml" >}}
+
+This created a so-called [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/)
+
+```bash
+team=<team>
+{{% param cliToolName %}} -n $team-monitoring get svc -l app=example-web-python
+```
+
+Which gives you an output similar to this:
+
+```bash
+NAME                 TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+example-web-python                  ClusterIP   172.24.195.25    <none>        5000/TCP                     24s
+```
+
+Our example application can now be reached on port `5000`.
+
+We can now make the application directly available on our machine using [port-forward](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/)
+
+```bash
+team=<team>
+{{% param cliToolName %}} -n $team-monitoring port-forward svc/example-web-python 5000
+```
+
+Use `curl` and verify the successful deployment of our example application in a separate terminal:
+
+```bash
+curl localhost:5000/metrics
+```
+{{% /onlyWhen %}}
+
+Should result in something like:
+
+```promql
 # HELP python_gc_objects_collected_total Objects collected during gc
 # TYPE python_gc_objects_collected_total counter
 python_gc_objects_collected_total{generation="0"} 541.0
@@ -87,6 +156,7 @@ python_gc_objects_collected_total{generation="2"} 15.0
 ```
 
 Since our newly deployed application now exposes metrics, the next thing we need to do, is to tell our Prometheus server to scrape metrics from the Kubernetes deployment. In a highly dynamic environment like Kubernetes this is done with so called Service Discovery.
+
 
 ## Service Discovery
 

@@ -6,18 +6,16 @@ sectionnumber: 1
 
 ## Prometheus in Kubernetes
 
-{{% alert title="Note" color="primary" %}}
-When running the [Vagrant](https://prometheus-training.puzzle.ch/setup/) setup, make sure you have at least 16Gi on your local machine to run the Prometheus Kubernetes setup.
-{{% /alert %}}
+{{% onlyWhenNot baloise %}}
 
-We will use [minikube](https://minikube.sigs.k8s.io/docs/start/) to start a minimal Kubernetes environment. If you are a novice in Kubernetes, you may want to use the [kubectl cheatsheet](https://kubernetes.io/docs/reference/kubectl/cheatsheet/)
+We will use [minikube](https://minikube.sigs.k8s.io/docs/start/) to start a minimal Kubernetes environment. If you are a novice in Kubernetes, you may want to use the [{{% param cliToolName %}} cheatsheet](https://kubernetes.io/docs/reference/kubectl/cheatsheet/)
 
 {{% alert title="Minikube" color="primary" %}}
 Minikube is already started and configured. When you restart your virtual machine, you might need to start it manually.
 
 ```bash
 minikube start \
---kubernetes-version=v1.20.2 \
+--kubernetes-version=v1.23.1 \
 --memory=6g \
 --cpus=4 \
 --bootstrapper=kubeadm \
@@ -32,12 +30,12 @@ minikube start \
 Check if you can connect to the API and verify the minikube master node is in `ready` state.
 
 ```bash
-kubectl get nodes
+{{% param cliToolName %}} get nodes
 ```
 
 ```bash
 NAME       STATUS   ROLES                  AGE    VERSION
-minikube   Ready    control-plane,master   2m2s   v1.20.2
+minikube   Ready    control-plane,master   2m2s   v1.23.1
 ```
 
 Deploy the Prometheus operator stack, consisting of:
@@ -57,13 +55,13 @@ Deploy the Prometheus operator stack, consisting of:
 ```bash
 git clone https://github.com/prometheus-operator/kube-prometheus.git ~/work/kube-prometheus
 cd ~/work/kube-prometheus
-git checkout release-0.8
-kubectl create -f manifests/setup
+git checkout release-0.10
+{{% param cliToolName %}} create -f manifests/setup
 ```
 
 The manifest will deploy a complete monitoring stack consisting of:
 
-* Two Prometheis
+* Two Prometheis - [What is the plural of Prometheus? ;)](https://prometheus.io/docs/introduction/faq/#what-is-the-plural-of-prometheus)
 * Alertmanager cluster
 * Grafana
 * kube-state metrics exporter
@@ -73,27 +71,27 @@ The manifest will deploy a complete monitoring stack consisting of:
 * A set of default dashboards
 
 ```bash
-kubectl create -f manifests/
+{{% param cliToolName %}} create -f manifests/
 ```
 
 By default, Prometheus is only allowed to monitor the `default`, `monitoring` and `kube-system` namespaces. Therefore we will add the necessary ClusterRoleBinding to grant Prometheus access to cluster-wide resources. Also we will create the needed ingress definitions for you, which will expose the monitoring components.
 
 ```bash
-kubectl -n monitoring apply -f \
+{{% param cliToolName %}} -n monitoring apply -f \
 https://raw.githubusercontent.com/puzzle/prometheus-training/main/content/en/docs/07/resources.yaml
 ```
 
 Wait until all pods are running
 
 ```bash
-watch kubectl -n monitoring get pods
+watch {{% param cliToolName %}} -n monitoring get pods
 ```
 
-Check if you can access the Prometheus web interface at <http://LOCALHOST:19090>
+Check if you can access the Prometheus web interface at <http://{{% param replacePlaceholder.k8sPrometheus %}}>
 
-Check access to Alertmanager at <http://LOCALHOST:19093>
+Check access to Alertmanager at <http://{{% param replacePlaceholder.k8sAlertmanager %}}>
 
-Check access to Grafana at <http://LOCALHOST:13000>
+Check access to Grafana at <http://{{% param replacePlaceholder.k8sGrafana %}}>
 {{% alert title="Note" color="primary" %}}
 Use the default Grafana logging credentials and change the password
 
@@ -102,13 +100,12 @@ Use the default Grafana logging credentials and change the password
 
 {{% /alert %}}
 
-{{% alert title="Note" color="primary" %}}
-When you run the [Vagrant](https://prometheus-training.puzzle.ch/setup/) setup, you can make your monitoring component accessible through port-forward.
+{{% /onlyWhenNot %}}
 
-```bash
-kubectl -n monitoring port-forward svc/prometheus-k8s 19090:9090 &
-kubectl -n monitoring port-forward svc/alertmanager-main 19093:9093 &
-kubectl -n monitoring port-forward svc/grafana 13000:3000 &
-```
+{{% onlyWhen baloise %}}
 
-{{% /alert %}}
+Have a look at the [Baloise Monitoring Stack](https://confluence.baloisenet.com/atlassian/display/BALMATE/06+-+Monitor+your+application+using+the+Baloise+Monitoring+Stack) and take a look at the different components and how they work together.
+
+You will notice that each Team Monitoring Stack has components on all clusters it is included in. The metrics scraped by the Team Monitoring Stack are not shared by default. However, you can [provide your Prometheus time series to other monitoring stacks](https://confluence.baloisenet.com/atlassian/display/BALMATE/01+-+Deploying+the+Baloise+Monitoring+Stack).
+
+{{% /onlyWhen %}}
